@@ -47,46 +47,48 @@ export default function AIAnalysisPage() {
   }, [coin]);
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold text-white">AI Analysis</h1>
-        <p className="text-gray-400">Analyzing: {coin}</p>
-      </div>
+    <div className="min-h-screen p-4 md:p-8 bg-gradient-to-br from-gray-950 via-gray-900 to-gray-950">
+      <div className="max-w-7xl mx-auto space-y-6">
+        <div>
+          <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-400 via-purple-500 to-pink-500 text-transparent bg-clip-text">AI Analysis</h1>
+          <p className="text-gray-400">Analyzing: {coin}</p>
+        </div>
 
-      {loading ? (
-        <LoadingState />
-      ) : result ? (
-        <>
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-1">
-              <VerdictCard verdict={result.verdict} />
-              <div className="mt-4">
-                <ConfidenceMeter 
-                  flashConfidence={result.flashSignal.confidence}
-                  mainConfidence={result.mainSignal.confidence}
-                />
+        {loading ? (
+          <LoadingState />
+        ) : result ? (
+          <>
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              <div className="lg:col-span-1">
+                <VerdictCard verdict={result.verdict} />
+                <div className="mt-4">
+                  <ConfidenceMeter 
+                    flashConfidence={result.flashSignal.confidence}
+                    mainConfidence={result.mainSignal.confidence}
+                  />
+                </div>
+              </div>
+              <div className="lg:col-span-2">
+                <TradingChart coin={coin} />
               </div>
             </div>
-            <div className="lg:col-span-2">
-              <TradingChart coin={coin} />
-            </div>
-          </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <FlashSignalCard signal={result.flashSignal} />
-            <MainSignalCard signal={result.mainSignal} />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <FlashSignalCard signal={result.flashSignal} />
+              <MainSignalCard signal={result.mainSignal} />
+            </div>
+            
+            <AnalysisBreakdown 
+              flashSignal={result.flashSignal}
+              mainSignal={result.mainSignal}
+            />
+          </>
+        ) : (
+          <div className="text-center text-gray-400 py-12">
+            No analysis results available
           </div>
-          
-          <AnalysisBreakdown 
-            flashSignal={result.flashSignal}
-            mainSignal={result.mainSignal}
-          />
-        </>
-      ) : (
-        <div className="text-center text-gray-400 py-12">
-          No analysis results available
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }
