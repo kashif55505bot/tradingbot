@@ -46,10 +46,10 @@ export default function Home() {
   };
 
   return (
-    <main className="min-h-screen p-4 md:p-8">
+    <main className="min-h-screen p-4 md:p-8 bg-gradient-to-br from-gray-950 via-gray-900 to-gray-950">
       <div className="max-w-7xl mx-auto">
         <header className="mb-8">
-          <h1 className="text-4xl md:text-5xl font-bold gradient-text">
+          <h1 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-blue-400 via-purple-500 to-pink-500 text-transparent bg-clip-text">
             CashiPro AI
           </h1>
           <p className="text-gray-400 mt-2 text-lg">
