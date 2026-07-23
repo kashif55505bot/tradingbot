@@ -1,89 +1,99 @@
-import { fetchKlines } from "../mexc";
-import { Signal, AnalysisResult } from "../../types/signal";
+import { MEXCClient, KlineData } from '@/lib/mexc';
+import { calculateEMA } from '@/lib/indicators/ema';
+import { calculateRSI } from '@/lib/indicators/rsi';
+import { calculateMACD } from '@/lib/indicators/macd';
+import { generateFlashSignal } from '@/lib/strategies/flashSignal';
+import { generateMainSignal } from '@/lib/strategies/mainSignal';
+import { AnalysisResult, IndicatorData } from '@/types/signal';
 
-export async function analyzeCoin(coin: string): Promise<AnalysisResult> {
-  const symbol = coin.endsWith("USDT") ? coin : coin + "USDT";
+export class AnalysisEngine {
+  private mexcClient: MEXCClient;
 
-  // Fetch data for different timeframes
-  const [m1Data, m5Data, m15Data, h1Data] = await Promise.all([
-    fetchKlines(symbol, "1m", 100),
-    fetchKlines(symbol, "5m", 200),
-    fetchKlines(symbol, "15m", 300),
-    fetchKlines(symbol, "1h", 300),
-  ]);
-
-  // Simple EMA + RSI logic (V1)
-  const flashSignal = calculateFlashSignal(m1Data, m5Data);
-  const mainSignal = calculateMainSignal(m15Data, h1Data);
-
-  const overallConfidence = Math.floor((flashSignal.confidence + mainSignal.confidence) / 2);
-
-  let verdict = "NEUTRAL";
-  if (flashSignal.type === "LONG" && mainSignal.type === "LONG") verdict = "STRONG BULLISH";
-  else if (flashSignal.type === "SHORT" && mainSignal.type === "SHORT") verdict = "STRONG BEARISH";
-  else if (flashSignal.type === mainSignal.type) verdict = "BULLISH";
-  else verdict = "MIXED";
-
-  return {
-    coin: symbol,
-    flashSignal,
-    mainSignal,
-    finalVerdict: verdict,
-    overallConfidence,
-    timestamp: new Date().toISOString(),
-  };
-}
-
-// Flash Signal (Short term)
-function calculateFlashSignal(m1: any[], m5: any[]): Signal {
-  if (m1.length < 20) {
-    return {
-      type: "NEUTRAL",
-      confidence: 45,
-      expectedTime: "1-10 Minutes",
-      reasoning: ["Insufficient data"],
-    };
+  constructor() {
+    this.mexcClient = MEXCClient.getInstance();
   }
 
-  const recent = m1.slice(-10);
-  const prev = m1.slice(-20, -10);
+  async analyze(coin: string): Promise<AnalysisResult> {
+    try {
+      // Fetch data for different timeframes
+      const [flashData, mainData, priceData] = await Promise.all([
+        this.mexcClient.getKlines(coin, '1m', 100),
+        this.mexcClient.getKlines(coin, '15m', 100),
+        this.mexcClient.getCurrentPrice(coin)
+      ]);
 
-  const isBullish = recent[recent.length - 1][4] > prev[prev.length - 1][4];
+      const price = priceData;
+      const closes = flashData.map(d => d.close);
 
-  return {
-    type: isBullish ? "LONG" : "SHORT",
-    confidence: isBullish ? 78 : 65,
-    expectedTime: "1-10 Minutes",
-    reasoning: [
-      isBullish ? "Recent candles showing bullish momentum" : "Bearish pressure in lower timeframe",
-      "Volume increasing",
-    ],
-  };
-}
+      // Calculate indicators for flash signal (1m data)
+      const ema20 = calculateEMA(closes, 20);
+      const ema50 = calculateEMA(closes, 50);
+      const ema200 = calculateEMA(closes, 200);
+      const rsi = calculateRSI(closes, 14);
+      const macd = calculateMACD(closes, 12, 26, 9);
+      
+      // Calculate volume metrics
+      const volumes = flashData.map(d => d.volume);
+      const avgVolume = volumes.reduce((a, b) => a + b, 0) / volumes.length;
+      const currentVolume = volumes[volumes.length - 1];
+      const volumeRatio = currentVolume / avgVolume;
 
-// Main Signal (Higher timeframe)
-function calculateMainSignal(m15: any[], h1: any[]): Signal {
-  if (h1.length < 30) {
-    return {
-      type: "NEUTRAL",
-      confidence: 50,
-      expectedTime: "4-12 Hours",
-      reasoning: ["Limited higher timeframe data"],
-    };
+      const indicators: IndicatorData = {
+        ema20: ema20[ema20.length - 1],
+        ema50: ema50[ema50.length - 1],
+        ema200: ema200[ema200.length - 1],
+        rsi: rsi[rsi.length - 1],
+        macd: {
+          macd: macd.macd[macd.macd.length - 1],
+          signal: macd.signal[macd.signal.length - 1],
+          histogram: macd.histogram[macd.histogram.length - 1]
+        },
+        volume: {
+          current: currentVolume,
+          average: avgVolume,
+          ratio: volumeRatio
+        }
+      };
+
+      // Generate signals
+      const flashSignal = generateFlashSignal(price, indicators, '1m');
+      const mainSignal = generateMainSignal(price, indicators, '15m');
+
+      // Calculate final verdict
+      const verdict = this.calculateVerdict(flashSignal, mainSignal);
+
+      return {
+        coin,
+        flashSignal,
+        mainSignal,
+        verdict,
+        timestamp: new Date().toISOString(),
+        rawData: {
+          flashData: flashData.slice(-10),
+          mainData: mainData.slice(-10)
+        }
+      };
+    } catch (error) {
+      console.error('Analysis error:', error);
+      throw error;
+    }
   }
 
-  const lastClose = h1[h1.length - 1][4];
-  const ema20Approx = h1.slice(-20).reduce((a, b) => a + b[4], 0) / 20;
-
-  const isBullish = lastClose > ema20Approx;
-
-  return {
-    type: isBullish ? "LONG" : "SHORT",
-    confidence: isBullish ? 82 : 71,
-    expectedTime: "4-12 Hours",
-    reasoning: [
-      `Price ${isBullish ? "above" : "below"} key moving average`,
-      "Higher timeframe structure intact",
-    ],
-  };
+  private calculateVerdict(flash: any, main: any): string {
+    if (flash.type === 'LONG' && main.type === 'LONG') {
+      return 'STRONG BULLISH';
+    } else if (flash.type === 'SHORT' && main.type === 'SHORT') {
+      return 'STRONG BEARISH';
+    } else if (flash.type === 'LONG' && main.type === 'NEUTRAL') {
+      return 'BULLISH';
+    } else if (flash.type === 'SHORT' && main.type === 'NEUTRAL') {
+      return 'BEARISH';
+    } else if (flash.type === 'LONG' && main.type === 'SHORT') {
+      return 'MIXED - CONFLICTING SIGNALS';
+    } else if (flash.type === 'SHORT' && main.type === 'LONG') {
+      return 'MIXED - CONFLICTING SIGNALS';
+    } else {
+      return 'NEUTRAL';
+    }
+  }
 }
