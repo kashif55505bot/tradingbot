@@ -1,0 +1,71 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+@layer components {
+  .glass-effect {
+    @apply bg-gray-800/30 backdrop-blur-sm border border-gray-700/50;
+  }
+  
+  .gradient-text {
+    @apply bg-gradient-to-r from-blue-400 via-purple-500 to-pink-500 text-transparent bg-clip-text;
+  }
+  
+  .signal-card {
+    @apply rounded-xl p-6 transition-all duration-300 hover:scale-[1.02] hover:shadow-2xl;
+  }
+  
+  .signal-card-bullish {
+    @apply border-green-500/30 bg-green-500/10;
+  }
+  
+  .signal-card-bearish {
+    @apply border-red-500/30 bg-red-500/10;
+  }
+  
+  .signal-card-neutral {
+    @apply border-yellow-500/30 bg-yellow-500/10;
+  }
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-gray-800/50;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-gray-600 rounded-full hover:bg-gray-500 transition-colors;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.shimmer {
+  background: linear-gradient(90deg, 
+    transparent 0%,
+    rgba(255,255,255,0.05) 50%,
+    transparent 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 3s infinite;
+}
