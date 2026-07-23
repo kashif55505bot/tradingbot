@@ -12,10 +12,8 @@ export default function TradingChart({ coin }: TradingChartProps) {
   useEffect(() => {
     if (!containerRef.current) return;
 
-    // Clean up previous widget
     containerRef.current.innerHTML = '';
 
-    // Create script element
     const script = document.createElement('script');
     script.src = 'https://s3.tradingview.com/tv.js';
     script.async = true;
@@ -52,7 +50,6 @@ export default function TradingChart({ coin }: TradingChartProps) {
     document.head.appendChild(script);
 
     return () => {
-      // Cleanup
       if (containerRef.current) {
         containerRef.current.innerHTML = '';
       }
