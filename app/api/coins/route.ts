@@ -4,7 +4,7 @@ import { MEXCClient } from '@/lib/mexc';
 export async function GET() {
   try {
     const client = MEXCClient.getInstance();
-    const coins = await client.getAllUSDTpairs();
+    const coins = await client.getAllCoins();
     
     return NextResponse.json({
       coins: coins,
