@@ -9,19 +9,25 @@ export async function POST(request: NextRequest) {
   try {
     const { coin } = await request.json();
     
-    if (!coin || !coin.endsWith('USDT')) {
+    if (!coin) {
       return NextResponse.json(
-        { error: 'Invalid coin symbol. Must end with USDT' },
+        { error: 'Coin symbol is required' },
         { status: 400 }
       );
     }
+
+    // Coin ko uppercase mein convert karein
+    const symbol = coin.toUpperCase();
+    
+    // Check if it ends with USDT, if not add it
+    const symbolWithUSDT = symbol.endsWith('USDT') ? symbol : `${symbol}USDT`;
 
     const client = MEXCClient.getInstance();
     
     // Fetch data
     const [klines, price] = await Promise.all([
-      client.getKlines(coin, '1m', 100),
-      client.getCurrentPrice(coin)
+      client.getKlines(symbolWithUSDT, '1m', 100),
+      client.getCurrentPrice(symbolWithUSDT)
     ]);
 
     const closes = klines.map(k => k.close);
@@ -54,7 +60,7 @@ export async function POST(request: NextRequest) {
     const result = aggregateSignals(price, indicators);
 
     return NextResponse.json({
-      coin,
+      coin: symbolWithUSDT,
       price,
       indicators,
       ...result
@@ -63,7 +69,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('Analysis error:', error);
     return NextResponse.json(
-      { error: 'Failed to analyze coin' },
+      { error: 'Failed to analyze coin. Make sure it exists on MEXC.' },
       { status: 500 }
     );
   }
