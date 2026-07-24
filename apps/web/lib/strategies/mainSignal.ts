@@ -36,18 +36,13 @@ export function generateMainSignal(
     reasoning.push(`RSI at ${indicators.rsi.toFixed(2)} (strong bearish momentum)`);
   }
   
-  // MACD Trend
-  if (indicators.macd.macd.length > 0 && indicators.macd.signal.length > 0) {
-    const lastMacd = indicators.macd.macd[indicators.macd.macd.length - 1];
-    const lastSignal = indicators.macd.signal[indicators.macd.signal.length - 1];
-    
-    if (lastMacd > lastSignal) {
-      longCount++;
-      reasoning.push('MACD above signal line (bullish)');
-    } else {
-      shortCount++;
-      reasoning.push('MACD below signal line (bearish)');
-    }
+  // MACD Trend - direct values use karo
+  if (indicators.macd.histogram > 0) {
+    longCount++;
+    reasoning.push('MACD histogram positive (bullish)');
+  } else {
+    shortCount++;
+    reasoning.push('MACD histogram negative (bearish)');
   }
   
   // Volume Trend
