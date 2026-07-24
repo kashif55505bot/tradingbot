@@ -7,10 +7,6 @@ const nextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
-  // Force app directory
-  experimental: {
-    appDir: true,
-  },
 };
 
 module.exports = nextConfig;
