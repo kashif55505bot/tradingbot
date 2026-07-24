@@ -1,5 +1,4 @@
-// Using CoinGecko API instead of MEXC (more reliable for all coins)
-const COINGECKO_BASE_URL = 'https://api.coingecko.com/api/v3';
+const MEXC_BASE_URL = 'https://api.mexc.com/api/v3';
 
 export interface KlineData {
   openTime: number;
@@ -22,34 +21,34 @@ export class MEXCClient {
     return MEXCClient.instance;
   }
 
-  // Get all coins from CoinGecko
-  async getAllCoins(): Promise<string[]> {
+  // Get all USDT pairs from MEXC
+  async getAllUSDTpairs(): Promise<string[]> {
     try {
       if (this.allCoins.length > 0) {
         return this.allCoins;
       }
 
-      const response = await fetch(
-        `${COINGECKO_BASE_URL}/coins/list?include_platform=false`
-      );
+      const url = `${MEXC_BASE_URL}/exchangeInfo`;
+      const response = await fetch(url);
       
       if (!response.ok) {
-        throw new Error(`CoinGecko API error: ${response.status}`);
+        throw new Error(`MEXC API error: ${response.status}`);
       }
       
       const data = await response.json();
       
-      // Convert to USDT format
-      const coins = data
-        .filter((coin: any) => coin.symbol)
-        .map((coin: any) => `${coin.symbol.toUpperCase()}USDT`)
-        .filter((symbol: string) => symbol.length <= 10) // Filter long symbols
-        .slice(0, 200); // Limit for performance
+      const usdtPairs = data.symbols
+        .filter((s: any) => 
+          s.quoteAsset === 'USDT' && 
+          s.status === 'TRADING'
+        )
+        .map((s: any) => s.symbol)
+        .sort();
       
-      this.allCoins = coins;
+      this.allCoins = usdtPairs;
       return this.allCoins;
     } catch (error) {
-      console.error('Error fetching coins:', error);
+      console.error('Error fetching symbols:', error);
       return this.getFallbackCoins();
     }
   }
@@ -58,148 +57,64 @@ export class MEXCClient {
     return [
       'BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'XRPUSDT', 
       'DOGEUSDT', 'ADAUSDT', 'DOTUSDT', 'LINKUSDT',
-      'MATICUSDT', 'AVAXUSDT', 'UNIUSDT', 'ATOMUSDT',
-      'LTCUSDT', 'BCHUSDT', 'NEARUSDT', 'APTUSDT'
+      'MATICUSDT', 'AVAXUSDT', 'UNIUSDT', 'ATOMUSDT'
     ];
   }
 
-  // Get OHLCV data from CoinGecko
   async getKlines(symbol: string, interval: string, limit: number = 100): Promise<KlineData[]> {
     try {
-      // Convert symbol to CoinGecko format (e.g., BTCUSDT -> bitcoin)
-      const coinId = await this.getCoinId(symbol);
-      
-      // Map interval to CoinGecko format
-      const intervalMap: Record<string, string> = {
-        '1m': '1m',
-        '5m': '5m',
-        '15m': '15m',
-        '30m': '30m',
-        '1h': '1h',
-        '4h': '4h',
-        '1d': '1d'
-      };
-      
-      const days = interval === '1d' ? 30 : 7;
-      const url = `${COINGECKO_BASE_URL}/coins/${coinId}/ohlc?days=${days}&vs_currency=usd`;
-      
+      const symbolUpper = symbol.toUpperCase();
+      const url = `${MEXC_BASE_URL}/klines?symbol=${symbolUpper}&interval=${interval}&limit=${limit}`;
       const response = await fetch(url);
       
       if (!response.ok) {
-        throw new Error(`CoinGecko API error: ${response.status}`);
+        if (response.status === 404) {
+          throw new Error(`Coin ${symbolUpper} not found on MEXC`);
+        }
+        throw new Error(`MEXC API error: ${response.status}`);
       }
       
       const data = await response.json();
       
       if (!data || data.length === 0) {
-        throw new Error(`No data available for ${symbol}`);
+        throw new Error(`No data available for ${symbolUpper}`);
       }
       
       return data.map((item: any[]) => ({
         openTime: item[0],
-        open: item[1],
-        high: item[2],
-        low: item[3],
-        close: item[4],
-        volume: 0, // CoinGecko free API doesn't provide volume
-        closeTime: item[0]
+        open: parseFloat(item[1]),
+        high: parseFloat(item[2]),
+        low: parseFloat(item[3]),
+        close: parseFloat(item[4]),
+        volume: parseFloat(item[5]),
+        closeTime: item[6]
       }));
     } catch (error) {
-      console.error('Error fetching klines:', error);
+      console.error('Error fetching MEXC klines:', error);
       throw error;
     }
   }
 
-  // Get current price from CoinGecko
   async getCurrentPrice(symbol: string): Promise<number> {
     try {
-      const coinId = await this.getCoinId(symbol);
-      const url = `${COINGECKO_BASE_URL}/simple/price?ids=${coinId}&vs_currencies=usd`;
-      
+      const symbolUpper = symbol.toUpperCase();
+      const url = `${MEXC_BASE_URL}/ticker/price?symbol=${symbolUpper}`;
       const response = await fetch(url);
       
       if (!response.ok) {
-        throw new Error(`CoinGecko API error: ${response.status}`);
+        throw new Error(`Price fetch failed for ${symbolUpper}`);
       }
       
       const data = await response.json();
-      return data[coinId]?.usd || 0;
+      return parseFloat(data.price);
     } catch (error) {
       console.error('Error fetching price:', error);
       throw error;
     }
   }
 
-  // Map symbol to CoinGecko ID
-  private async getCoinId(symbol: string): Promise<string> {
-    const symbolMap: Record<string, string> = {
-      'BTCUSDT': 'bitcoin',
-      'ETHUSDT': 'ethereum',
-      'SOLUSDT': 'solana',
-      'XRPUSDT': 'ripple',
-      'DOGEUSDT': 'dogecoin',
-      'ADAUSDT': 'cardano',
-      'DOTUSDT': 'polkadot',
-      'LINKUSDT': 'chainlink',
-      'MATICUSDT': 'polygon',
-      'AVAXUSDT': 'avalanche-2',
-      'UNIUSDT': 'uniswap',
-      'ATOMUSDT': 'cosmos',
-      'LTCUSDT': 'litecoin',
-      'BCHUSDT': 'bitcoin-cash',
-      'NEARUSDT': 'near',
-      'APTUSDT': 'aptos',
-      'ARBUSDT': 'arbitrum',
-      'OPUSDT': 'optimism',
-      'INJUSDT': 'injective-protocol',
-      'SUIUSDT': 'sui',
-      'PEPEUSDT': 'pepe',
-      'SEIUSDT': 'sei-network',
-      'TIAUSDT': 'celestia',
-      'PYTHUSDT': 'pyth-network',
-      'JUPUSDT': 'jupiter',
-      'ONDOUSDT': 'ondo-finance',
-      'STRKUSDT': 'starknet',
-      'ENAUSDT': 'ethena',
-      'ETHFIUSDT': 'ether-fi',
-      'WIFUSDT': 'dogwifcoin',
-      'BONKUSDT': 'bonk',
-      'FLOKIUSDT': 'floki'
-    };
-
-    // Clean symbol
-    const cleanSymbol = symbol.replace('USDT', '').toLowerCase();
-    
-    // Try to find in map
-    for (const [key, value] of Object.entries(symbolMap)) {
-      if (key === symbol) return value;
-    }
-    
-    // If not found, try using symbol directly
-    const response = await fetch(
-      `${COINGECKO_BASE_URL}/coins/${cleanSymbol}?localization=false&tickers=false&market_data=false&community_data=false&developer_data=false`
-    );
-    
-    if (response.ok) {
-      const data = await response.json();
-      return data.id;
-    }
-    
-    // Fallback: try searching
-    const searchResponse = await fetch(
-      `${COINGECKO_BASE_URL}/search?query=${cleanSymbol}`
-    );
-    const searchData = await searchResponse.json();
-    
-    if (searchData.coins && searchData.coins.length > 0) {
-      return searchData.coins[0].id;
-    }
-    
-    throw new Error(`Coin ${symbol} not found on CoinGecko`);
-  }
-
   async searchCoins(query: string): Promise<string[]> {
-    const allCoins = await this.getAllCoins();
+    const allCoins = await this.getAllUSDTpairs();
     const upperQuery = query.toUpperCase();
     
     return allCoins
