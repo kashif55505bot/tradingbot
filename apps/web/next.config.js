@@ -8,9 +8,8 @@ const nextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
-  // Important for subdirectory deployment
+  output: 'standalone',
   trailingSlash: true,
-  skipTrailingSlashRedirect: true,
 };
 
 module.exports = nextConfig;
