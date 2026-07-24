@@ -15,7 +15,6 @@ export class AnalysisEngine {
 
   async analyze(coin: string): Promise<AnalysisResult> {
     try {
-      // Fetch data for different timeframes
       const [flashData, mainData, priceData] = await Promise.all([
         this.mexcClient.getKlines(coin, '1m', 100),
         this.mexcClient.getKlines(coin, '15m', 100),
@@ -25,14 +24,12 @@ export class AnalysisEngine {
       const price = priceData;
       const closes = flashData.map(d => d.close);
 
-      // Calculate indicators for flash signal (1m data)
       const ema20 = calculateEMA(closes, 20);
       const ema50 = calculateEMA(closes, 50);
       const ema200 = calculateEMA(closes, 200);
       const rsi = calculateRSI(closes, 14);
       const macd = calculateMACD(closes, 12, 26, 9);
       
-      // Calculate volume metrics
       const volumes = flashData.map(d => d.volume);
       const avgVolume = volumes.reduce((a, b) => a + b, 0) / volumes.length;
       const currentVolume = volumes[volumes.length - 1];
@@ -55,11 +52,9 @@ export class AnalysisEngine {
         }
       };
 
-      // Generate signals
       const flashSignal = generateFlashSignal(price, indicators, '1m');
       const mainSignal = generateMainSignal(price, indicators, '15m');
 
-      // Calculate final verdict
       const verdict = this.calculateVerdict(flashSignal, mainSignal);
 
       return {
