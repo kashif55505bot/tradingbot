@@ -23,9 +23,9 @@ export default function Home() {
       const data = await response.json();
       if (!response.ok) throw new Error(data.error);
       setResult(data);
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
-      alert('Analysis failed. Please try again.');
+      alert(error.message || 'Analysis failed. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -53,6 +53,10 @@ export default function Home() {
                 price={result.price}
                 verdict={result.verdict}
                 confidence={result.confidence}
+                entry={result.entry}
+                stopLoss={result.stopLoss}
+                targets={result.targets}
+                timeFrame={result.timeFrame}
               />
               <StrategyCards signals={result.signals} />
             </>
