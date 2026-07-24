@@ -1,6 +1,10 @@
 'use client';
 
 import { useState } from 'react';
+import CoinInput from '@/components/CoinInput';
+import Dashboard from '@/components/Dashboard';
+import StrategyCards from '@/components/StrategyCards';
+import LoadingState from '@/components/LoadingState';
 
 export default function Home() {
   const [coin, setCoin] = useState('BTCUSDT');
@@ -9,6 +13,7 @@ export default function Home() {
 
   const analyze = async () => {
     setLoading(true);
+    setResult(null);
     try {
       const response = await fetch('/api/analyze', {
         method: 'POST',
@@ -16,58 +21,43 @@ export default function Home() {
         body: JSON.stringify({ coin })
       });
       const data = await response.json();
+      if (!response.ok) throw new Error(data.error);
       setResult(data);
     } catch (error) {
       console.error(error);
+      alert('Analysis failed. Please try again.');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <main className="min-h-screen p-8 bg-gray-900">
+    <main className="min-h-screen p-4 md:p-8 bg-gray-900">
       <div className="max-w-4xl mx-auto">
-        <h1 className="text-4xl font-bold text-white mb-8">🚀 CashiPro AI</h1>
-        
-        <div className="flex gap-4 mb-8">
-          <input
-            type="text"
-            value={coin}
-            onChange={(e) => setCoin(e.target.value.toUpperCase())}
-            className="flex-1 px-4 py-2 rounded bg-gray-800 text-white border border-gray-700"
-            placeholder="Enter coin (e.g., BTCUSDT)"
-          />
-          <button
-            onClick={analyze}
-            disabled={loading}
-            className="px-6 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
-          >
-            {loading ? 'Analyzing...' : 'Analyze'}
-          </button>
-        </div>
+        <header className="mb-8">
+          <h1 className="text-4xl md:text-5xl font-bold text-white">
+            🚀 CashiPro AI
+          </h1>
+          <p className="text-gray-400 mt-2">6 Advanced Strategies • Real-Time Analysis</p>
+        </header>
 
-        {result && (
-          <div className="bg-gray-800 rounded-lg p-6">
-            <h2 className="text-xl font-bold text-white mb-4">{result.coin}</h2>
-            <p className="text-gray-400">Price: ${result.price}</p>
-            <p className="text-gray-400">Verdict: <span className="text-green-400 font-bold">{result.verdict}</span></p>
-            <p className="text-gray-400">Confidence: {result.confidence}%</p>
-            
-            <div className="mt-4">
-              <h3 className="text-lg font-semibold text-white mb-2">Strategies:</h3>
-              {result.signals && Object.entries(result.signals).map(([name, signal]: [string, any]) => (
-                <div key={name} className="bg-gray-700 rounded p-3 mb-2">
-                  <p className="text-white">{name}: <span className={signal.type === 'LONG' ? 'text-green-400' : signal.type === 'SHORT' ? 'text-red-400' : 'text-yellow-400'}>
-                    {signal.type}
-                  </span> ({signal.confidence}%)</p>
-                  {signal.reasoning && signal.reasoning.map((r: string, i: number) => (
-                    <p key={i} className="text-gray-400 text-sm ml-4">• {r}</p>
-                  ))}
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
+        <div className="space-y-6">
+          <CoinInput onAnalyze={analyze} loading={loading} />
+
+          {loading && <LoadingState />}
+
+          {!loading && result && (
+            <>
+              <Dashboard
+                coin={result.coin}
+                price={result.price}
+                verdict={result.verdict}
+                confidence={result.confidence}
+              />
+              <StrategyCards signals={result.signals} />
+            </>
+          )}
+        </div>
       </div>
     </main>
   );
